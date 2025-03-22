@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>2048 - Mini Version</title>
+  <style>
+    /* ----- STYLE GLOBAL ----- */
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf8ef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      margin: 0;
+      padding: 0;
+    }
+    
+    h1 {
+      margin-top: 40px;
+      margin-bottom: 10px;
+    }
+
+    .score-container {
+      margin-bottom: 20px;
+      font-size: 1.2rem;
+    }
+
+    /* ----- GRILLE ----- */
+    .grid-container {
+      width: 400px;
+      height: 400px;
+      background: #bbada0;
+      border-radius: 6px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .tile {
+      background: rgba(238, 228, 218, 0.35);
+      border-radius: 3px;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #776e65;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s ease-in-out;
+    }
+
+    /* Couleurs basiques pour quelques valeurs (tu peux en ajouter + si tu veux) */
+    .tile-2    { background: #eee4da; color: #776e65; }
+    .tile-4    { background: #ede0c8; color: #776e65; }
+    .tile-8    { background: #f2b179; color: #f9f6f2; }
+    .tile-16   { background: #f59563; color: #f9f6f2; }
+    .tile-32   { background: #f67c5f; color: #f9f6f2; }
+    .tile-64   { background: #f65e3b; color: #f9f6f2; }
+    .tile-128  { background: #edcf72; color: #f9f6f2; }
+    .tile-256  { background: #edcc61; color: #f9f6f2; }
+    .tile-512  { background: #edc850; color: #f9f6f2; }
+    .tile-1024 { background: #edc53f; color: #f9f6f2; }
+    .tile-2048 { background: #edc22e; color: #f9f6f2; }
+
+    /* ----- FENÊTRES FIN DE JEU / VICTOIRE ----- */
+    #game-over,
+    #game-win {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(238,228,218,0.9);
+      border-radius: 6px;
+      padding: 30px;
+      text-align: center;
+      display: none; /* caché par défaut */
+    }
+
+    #game-over h2,
+    #game-win h2 {
+      margin: 0 0 20px 0;
+    }
+
+    button {
+      background: #8f7a66;
+      color: #f9f6f2;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #776e65;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>2048 - Mini Version</h1>
+  <div class="score-container">Score : <span id="score">0</span></div>
+
+  <div class="grid-container" id="grid">
+    <!-- 16 cases "vides" au démarrage. Elles seront mises à jour en JS. -->
+    <!-- On pourrait les générer en JS, mais c'est simple de les déclarer ci-dessous aussi -->
+    <div class="tile" id="cell-0-0"></div>
+    <div class="tile" id="cell-0-1"></div>
+    <div class="tile" id="cell-0-2"></div>
+    <div class="tile" id="cell-0-3"></div>
+
+    <div class="tile" id="cell-1-0"></div>
+    <div class="tile" id="cell-1-1"></div>
+    <div class="tile" id="cell-1-2"></div>
+    <div class="tile" id="cell-1-3"></div>
+
+    <div class="tile" id="cell-2-0"></div>
+    <div class="tile" id="cell-2-1"></div>
+    <div class="tile" id="cell-2-2"></div>
+    <div class="tile" id="cell-2-3"></div>
+
+    <div class="tile" id="cell-3-0"></div>
+    <div class="tile" id="cell-3-1"></div>
+    <div class="tile" id="cell-3-2"></div>
+    <div class="tile" id="cell-3-3"></div>
+
+    <!-- Fenêtre de game over -->
+    <div id="game-over">
+      <h2>Game Over!</h2>
+      <p>Score final : <span id="final-score">0</span></p>
+      <button onclick="restartGame()">Rejouer</button>
+    </div>
+
+    <!-- Fenêtre de victoire -->
+    <div id="game-win">
+      <h2>Félicitations, vous avez atteint 2048!</h2>
+      <p>Score : <span id="win-score">0</span></p>
+      <button onclick="continueGame()">Continuer</button>
+    </div>
+  </div>
+
+  <script>
+    // ------ VARIABLES GLOBALES ------
+    let board;          // Tableau 2D (4x4) qui stocke les valeurs (0, 2, 4, 8, ...)
+    let score = 0;      // Score actuel
+    let gameOver = false;
+    let hasWon = false;
+
+    // ------ INITIALISATION ------
+    window.onload = function() {
+      initGame();
+    };
+
+    function initGame() {
+      // Reset
+      board = [
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,0,0,0],
+        [0,0,0,0]
+      ];
+      score = 0;
+      gameOver = false;
+      hasWon = false;
+      
+      document.getElementById("score").innerText = score;
+      document.getElementById("game-over").style.display = "none";
+      document.getElementById("game-win").style.display = "none";
+
+      // On ajoute deux tuiles de départ
+      addRandomTile();
+      addRandomTile();
+      updateBoard();
+    }
+
+    // ------ GENERATION DE TUILE ALEATOIRE ------
+    function addRandomTile() {
+      let emptyCells = [];
+      // Trouver toutes les cases vides
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          if (board[r][c] === 0) {
+            emptyCells.push({r, c});
+          }
+        }
+      }
+      if (emptyCells.length === 0) return;
+      // Choisir une case vide aléatoire
+      let randomIndex = Math.floor(Math.random() * emptyCells.length);
+      let cell = emptyCells[randomIndex];
+      // 90% de chance de générer un 2, 10% de chance de générer un 4
+      board[cell.r][cell.c] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    // ------ AFFICHAGE (DOM) ------
+    function updateBoard() {
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          let tileValue = board[r][c];
+          let cellEl = document.getElementById(`cell-${r}-${c}`);
+          cellEl.innerHTML = tileValue > 0 ? tileValue : "";
+
+          // Supprimer classes existantes tile-2, tile-4, etc.
+          cellEl.className = "tile"; 
+          if (tileValue > 0) {
+            cellEl.classList.add(`tile-${tileValue}`);
+          }
+        }
+      }
+      document.getElementById("score").innerText = score;
+    }
+
+    // ------ ECOUTEURS DE TOUCHE (FLECHES) ------
+    document.addEventListener("keydown", function(e) {
+      if (gameOver || hasWon) return; // Pas de mouvement si fin de partie ou gagné
+
+      switch(e.key) {
+        case "ArrowLeft":
+          moveLeft();
+          break;
+        case "ArrowRight":
+          moveRight();
+          break;
+        case "ArrowUp":
+          moveUp();
+          break;
+        case "ArrowDown":
+          moveDown();
+          break;
+        default:
+          return;
+      }
+      addRandomTile();
+      updateBoard();
+      checkWin();
+      checkGameOver();
+    });
+
+    // ------ CHECKER SI ON A GAGNÉ ------
+    function checkWin() {
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          if (board[r][c] === 2048) {
+            hasWon = true;
+            showWinMessage();
+            return;
+          }
+        }
+      }
+    }
+
+    function showWinMessage() {
+      document.getElementById("win-score").innerText = score;
+      document.getElementById("game-win").style.display = "block";
+    }
+
+    function continueGame() {
+      // On permet de continuer à jouer malgré la tuile 2048
+      hasWon = false;
+      document.getElementById("game-win").style.display = "none";
+    }
+
+    // ------ CHECKER LE GAME OVER ------
+    function checkGameOver() {
+      // S’il reste des cases vides, pas game over
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          if (board[r][c] === 0) {
+            return;
+          }
+        }
+      }
+      // Vérifier si un mouvement est encore possible
+      // - Deux cases adjacentes (horizontalement ou verticalement) sont identiques -> pas game over
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          // Check à droite
+          if (c < 3 && board[r][c] === board[r][c+1]) {
+            return;
+          }
+          // Check en bas
+          if (r < 3 && board[r][c] === board[r+1][c]) {
+            return;
+          }
+        }
+      }
+      // Si on arrive ici, plus de move possible -> game over
+      gameOver = true;
+      document.getElementById("final-score").innerText = score;
+      document.getElementById("game-over").style.display = "block";
+    }
+
+    function restartGame() {
+      initGame();
+    }
+
+    // ------ MOUVEMENT: LEFT ------
+    function moveLeft() {
+      for (let r = 0; r < 4; r++) {
+        // Extraire la rangée
+        let row = board[r];
+        // "Compresser" (retirer les 0)
+        row = row.filter(val => val !== 0);
+
+        // Fusionner
+        for (let i = 0; i < row.length - 1; i++) {
+          if (row[i] === row[i+1]) {
+            row[i] *= 2;
+            score += row[i];
+            row[i+1] = 0;
+          }
+        }
+        // Retirer les 0 à nouveau
+        row = row.filter(val => val !== 0);
+        // Compléter avec 0 à la fin
+        while (row.length < 4) {
+          row.push(0);
+        }
+        // Mettre à jour la rangée du board
+        board[r] = row;
+      }
+    }
+
+    // ------ MOUVEMENT: RIGHT ------
+    function moveRight() {
+      for (let r = 0; r < 4; r++) {
+        let row = board[r];
+        // Inverser
+        row.reverse();
+        // Même logique que moveLeft, mais sur la row inversée
+        row = row.filter(val => val !== 0);
+
+        for (let i = 0; i < row.length - 1; i++) {
+          if (row[i] === row[i+1]) {
+            row[i] *= 2;
+            score += row[i];
+            row[i+1] = 0;
+          }
+        }
+        row = row.filter(val => val !== 0);
+        while (row.length < 4) {
+          row.push(0);
+        }
+        // Re-inverser
+        row.reverse();
+        board[r] = row;
+      }
+    }
+
+    // ------ MOUVEMENT: UP ------
+    function moveUp() {
+      // On "transpose" la grille pour réutiliser la logique de moveLeft sur chaque colonne
+      for (let c = 0; c < 4; c++) {
+        // Extraire la colonne en liste
+        let col = [board[0][c], board[1][c], board[2][c], board[3][c]];
+        // On compresse
+        col = col.filter(val => val !== 0);
+
+        for (let i = 0; i < col.length - 1; i++) {
+          if (col[i] === col[i+1]) {
+            col[i] *= 2;
+            score += col[i];
+            col[i+1] = 0;
+          }
+        }
+        col = col.filter(val => val !== 0);
+        while (col.length < 4) {
+          col.push(0);
+        }
+        // Remettre la colonne mise à jour dans board
+        board[0][c] = col[0];
+        board[1][c] = col[1];
+        board[2][c] = col[2];
+        board[3][c] = col[3];
+      }
+    }
+
+    // ------ MOUVEMENT: DOWN ------
+    function moveDown() {
+      for (let c = 0; c < 4; c++) {
+        let col = [board[0][c], board[1][c], board[2][c], board[3][c]];
+        // Inverser
+        col.reverse();
+        col = col.filter(val => val !== 0);
+
+        for (let i = 0; i < col.length - 1; i++) {
+          if (col[i] === col[i+1]) {
+            col[i] *= 2;
+            score += col[i];
+            col[i+1] = 0;
+          }
+        }
+        col = col.filter(val => val !== 0);
+        while (col.length < 4) {
+          col.push(0);
+        }
+        col.reverse();
+
+        board[0][c] = col[0];
+        board[1][c] = col[1];
+        board[2][c] = col[2];
+        board[3][c] = col[3];
+      }
+    }
+  </script>
+</body>
+</html>
